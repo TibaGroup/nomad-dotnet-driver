@@ -170,8 +170,8 @@ type TaskConfig struct {
 	// JarPath indicates where a jar  file is found.
 	JarPath string `codec:"jar_path"`
 
-	// JvmOpts are arguments to pass to the JVM
-	JvmOpts []string `codec:"jvm_options"`
+	// DotnetOpts are arguments to pass to the JVM
+	DotnetOpts []string `codec:"dotnet_options"`
 
 	// Args are extra arguments to java executable
 	Args []string `codec:"args"`
@@ -338,20 +338,8 @@ func (d *Driver) buildFingerprint() *drivers.Fingerprint {
 			return fp
 		}
 	}
-	if runtime.GOOS == "darwin" {
-		_, err := checkForMacJVM()
-		if err != nil {
-			// return no error, as it isn't an error to not find java, it just means we
-			// can't use it.
 
-			fp.Health = drivers.HealthStateUndetected
-			fp.HealthDescription = ""
-			d.logger.Trace("macOS jvm not found", "error", err)
-			return fp
-		}
-	}
-
-	version, jdkJRE, vm, err := javaVersionInfo()
+	version, dotnetCLR, vm, err := dotnetVersionInfo()
 	if err != nil {
 		// return no error, as it isn't an error to not find java, it just means we
 		// can't use it.
@@ -362,7 +350,7 @@ func (d *Driver) buildFingerprint() *drivers.Fingerprint {
 
 	fp.Attributes[driverAttr] = pstructs.NewBoolAttribute(true)
 	fp.Attributes[driverVersionAttr] = pstructs.NewStringAttribute(version)
-	fp.Attributes["driver.java.runtime"] = pstructs.NewStringAttribute(jdkJRE)
+	fp.Attributes["driver.java.runtime"] = pstructs.NewStringAttribute(dotnetCLR)
 	fp.Attributes["driver.java.vm"] = pstructs.NewStringAttribute(vm)
 
 	return fp
@@ -445,7 +433,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		return nil, nil, fmt.Errorf("failed to find java binary: %s", err)
 	}
 
-	args := javaCmdArgs(driverConfig)
+	args := dotnetCmdArgs(driverConfig)
 
 	d.logger.Info("starting java task", "driver_cfg", hclog.Fmt("%+v", driverConfig), "args", args)
 
@@ -541,12 +529,12 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	return handle, nil, nil
 }
 
-func javaCmdArgs(driverConfig TaskConfig) []string {
+func dotnetCmdArgs(driverConfig TaskConfig) []string {
 	var args []string
 
 	// Look for jvm options
-	if len(driverConfig.JvmOpts) != 0 {
-		args = append(args, driverConfig.JvmOpts...)
+	if len(driverConfig.DotnetOpts) != 0 {
+		args = append(args, driverConfig.DotnetOpts...)
 	}
 
 	// Add the classpath
