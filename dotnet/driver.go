@@ -9,7 +9,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/hashicorp/consul-template/signals"
-	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/client/lib/cgroupslib"
 	"github.com/hashicorp/nomad/drivers/shared/capabilities"
 	"github.com/hashicorp/nomad/drivers/shared/eventer"
@@ -36,8 +36,8 @@ const (
 	fingerprintPeriod = 30 * time.Second
 
 	// The key populated in Node Attributes to indicate presence of the Java driver
-	driverAttr        = "driver.java"
-	driverVersionAttr = "driver.java.version"
+	driverAttr        = "driver.dotnet"
+	driverVersionAttr = "driver.dotnet.version"
 
 	// taskHandleVersion is the version of task handle which this driver sets
 	// and understands how to decode driver state
@@ -167,8 +167,8 @@ type TaskConfig struct {
 	// ClassPath indicates where class files are found.
 	ClassPath string `codec:"class_path"`
 
-	// JarPath indicates where a jar  file is found.
-	JarPath string `codec:"jar_path"`
+	// DotnetPath indicates where a jar  file is found.
+	DotnetPath string `codec:"dotnet_path"`
 
 	// DotnetOpts are arguments to pass to the JVM
 	DotnetOpts []string `codec:"dotnet_options"`
@@ -339,7 +339,7 @@ func (d *Driver) buildFingerprint() *drivers.Fingerprint {
 		}
 	}
 
-	version, dotnetCLR, vm, err := dotnetVersionInfo()
+	version, err := DotnetVersionInfo()
 	if err != nil {
 		// return no error, as it isn't an error to not find java, it just means we
 		// can't use it.
@@ -350,8 +350,6 @@ func (d *Driver) buildFingerprint() *drivers.Fingerprint {
 
 	fp.Attributes[driverAttr] = pstructs.NewBoolAttribute(true)
 	fp.Attributes[driverVersionAttr] = pstructs.NewStringAttribute(version)
-	fp.Attributes["driver.java.runtime"] = pstructs.NewStringAttribute(dotnetCLR)
-	fp.Attributes["driver.java.vm"] = pstructs.NewStringAttribute(vm)
 
 	return fp
 }
@@ -424,7 +422,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		return nil, nil, fmt.Errorf("failed driver config validation: %v", err)
 	}
 
-	if driverConfig.Class == "" && driverConfig.JarPath == "" {
+	if driverConfig.Class == "" && driverConfig.DotnetPath == "" {
 		return nil, nil, fmt.Errorf("jar_path or class must be specified")
 	}
 
@@ -543,8 +541,8 @@ func dotnetCmdArgs(driverConfig TaskConfig) []string {
 	}
 
 	// Add the jar
-	if driverConfig.JarPath != "" {
-		args = append(args, "-jar", driverConfig.JarPath)
+	if driverConfig.DotnetPath != "" {
+		args = append(args, "-jar", driverConfig.DotnetPath)
 	}
 
 	// Add the class
