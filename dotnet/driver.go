@@ -30,7 +30,7 @@ import (
 
 const (
 	// pluginName is the name of the plugin
-	pluginName = "java"
+	pluginName = "dotnet"
 
 	// fingerprintPeriod is the interval at which the driver will send fingerprint responses
 	fingerprintPeriod = 30 * time.Second
@@ -86,18 +86,18 @@ var (
 	// taskConfigSpec is the hcl specification for the driver config section of
 	// a taskConfig within a job. It is returned in the TaskConfigSchema RPC
 	taskConfigSpec = hclspec.NewObject(map[string]*hclspec.Spec{
-		// It's required for either `class` or `jar_path` to be set,
+		// It's required for either `class` or `dll_path` to be set,
 		// but that's not expressable in hclspec.  Marking both as optional
 		// and setting checking explicitly later
-		"class":       hclspec.NewAttr("class", "string", false),
-		"class_path":  hclspec.NewAttr("class_path", "string", false),
-		"jar_path":    hclspec.NewAttr("jar_path", "string", false),
-		"jvm_options": hclspec.NewAttr("jvm_options", "list(string)", false),
-		"args":        hclspec.NewAttr("args", "list(string)", false),
-		"pid_mode":    hclspec.NewAttr("pid_mode", "string", false),
-		"ipc_mode":    hclspec.NewAttr("ipc_mode", "string", false),
-		"cap_add":     hclspec.NewAttr("cap_add", "list(string)", false),
-		"cap_drop":    hclspec.NewAttr("cap_drop", "list(string)", false),
+		"class":          hclspec.NewAttr("class", "string", false),
+		"class_path":     hclspec.NewAttr("class_path", "string", false),
+		"dll_path":       hclspec.NewAttr("dll_path", "string", false),
+		"dotnet_options": hclspec.NewAttr("dotnet_options", "list(string)", false),
+		"args":           hclspec.NewAttr("args", "list(string)", false),
+		"pid_mode":       hclspec.NewAttr("pid_mode", "string", false),
+		"ipc_mode":       hclspec.NewAttr("ipc_mode", "string", false),
+		"cap_add":        hclspec.NewAttr("cap_add", "list(string)", false),
+		"cap_drop":       hclspec.NewAttr("cap_drop", "list(string)", false),
 	})
 
 	// driverCapabilities is returned by the Capabilities RPC and indicates what
@@ -161,14 +161,11 @@ func (c *Config) validate() error {
 
 // TaskConfig is the driver configuration of a taskConfig within a job
 type TaskConfig struct {
-	// Class indicates which class contains the java entry point.
+	// Class indicates which class contains the dotnet entry point.
 	Class string `codec:"class"`
 
-	// ClassPath indicates where class files are found.
-	ClassPath string `codec:"class_path"`
-
-	// DotnetPath indicates where a jar  file is found.
-	DotnetPath string `codec:"dotnet_path"`
+	// DotnetPath indicates where a dll file is found.
+	DotnetPath string `codec:"dll_path"`
 
 	// DotnetOpts are arguments to pass to the JVM
 	DotnetOpts []string `codec:"dotnet_options"`
@@ -282,7 +279,7 @@ func (d *Driver) SetConfig(cfg *base.Config) error {
 	}
 	d.config = config
 
-	if cfg != nil && cfg.AgentConfig != nil {
+	if cfg.AgentConfig != nil {
 		d.nomadConfig = cfg.AgentConfig.Driver
 	}
 	return nil
@@ -423,17 +420,17 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	}
 
 	if driverConfig.Class == "" && driverConfig.DotnetPath == "" {
-		return nil, nil, fmt.Errorf("jar_path or class must be specified")
+		return nil, nil, fmt.Errorf("dll_path or class must be specified")
 	}
 
-	absPath, err := GetAbsolutePath("java")
+	absPath, err := GetAbsolutePath("dotnet")
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find java binary: %s", err)
+		return nil, nil, fmt.Errorf("failed to find dotnet binary: %s", err)
 	}
 
 	args := dotnetCmdArgs(driverConfig)
 
-	d.logger.Info("starting java task", "driver_cfg", hclog.Fmt("%+v", driverConfig), "args", args)
+	d.logger.Info("starting dotnet task", "driver_cfg", hclog.Fmt("%+v", driverConfig), "args", args)
 
 	handle := drivers.NewTaskHandle(taskHandleVersion)
 	handle.Config = cfg
@@ -446,7 +443,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		Compute:     d.nomadConfig.Topology.Compute(),
 	}
 
-	exec, pluginClient, err := executor.CreateExecutor(
+	execVar, pluginClient, err := executor.CreateExecutor(
 		d.logger.With("task_name", handle.Config.Name, "alloc_id", handle.Config.AllocID),
 		d.nomadConfig, executorConfig)
 	if err != nil {
@@ -492,14 +489,14 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		Capabilities:     caps,
 	}
 
-	ps, err := exec.Launch(execCmd)
+	ps, err := execVar.Launch(execCmd)
 	if err != nil {
 		pluginClient.Kill()
 		return nil, nil, fmt.Errorf("failed to launch command with executor: %v", err)
 	}
 
 	h := &taskHandle{
-		exec:         exec,
+		exec:         execVar,
 		pid:          ps.Pid,
 		pluginClient: pluginClient,
 		taskConfig:   cfg,
@@ -517,7 +514,10 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 
 	if err := handle.SetDriverState(&driverState); err != nil {
 		d.logger.Error("failed to start task, error setting driver state", "error", err)
-		exec.Shutdown("", 0)
+		err := execVar.Shutdown("", 0)
+		if err != nil {
+			return nil, nil, err
+		}
 		pluginClient.Kill()
 		return nil, nil, fmt.Errorf("failed to set driver state: %v", err)
 	}
@@ -535,14 +535,9 @@ func dotnetCmdArgs(driverConfig TaskConfig) []string {
 		args = append(args, driverConfig.DotnetOpts...)
 	}
 
-	// Add the classpath
-	if driverConfig.ClassPath != "" {
-		args = append(args, "-cp", driverConfig.ClassPath)
-	}
-
-	// Add the jar
+	// Add the dll
 	if driverConfig.DotnetPath != "" {
-		args = append(args, "-jar", driverConfig.DotnetPath)
+		args = append(args, "-dll", driverConfig.DotnetPath)
 	}
 
 	// Add the class
