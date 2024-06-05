@@ -35,7 +35,7 @@ const (
 	// fingerprintPeriod is the interval at which the driver will send fingerprint responses
 	fingerprintPeriod = 30 * time.Second
 
-	// The key populated in Node Attributes to indicate presence of the Java driver
+	// The key populated in Node Attributes to indicate presence of the Dotnet driver
 	driverAttr        = "driver.dotnet"
 	driverVersionAttr = "driver.dotnet.version"
 
@@ -45,14 +45,14 @@ const (
 )
 
 var (
-	// PluginID is the java plugin metadata registered in the plugin
+	// PluginID is the dotnet plugin metadata registered in the plugin
 	// catalog.
 	PluginID = loader.PluginID{
 		Name:       pluginName,
 		PluginType: base.PluginTypeDriver,
 	}
 
-	// PluginConfig is the java driver factory function registered in the
+	// PluginConfig is the dotnet driver factory function registered in the
 	// plugin catalog.
 	PluginConfig = &loader.InternalPluginConfig{
 		Config:  map[string]interface{}{},
@@ -90,7 +90,6 @@ var (
 		// but that's not expressable in hclspec.  Marking both as optional
 		// and setting checking explicitly later
 		"class":          hclspec.NewAttr("class", "string", false),
-		"class_path":     hclspec.NewAttr("class_path", "string", false),
 		"dll_path":       hclspec.NewAttr("dll_path", "string", false),
 		"dotnet_options": hclspec.NewAttr("dotnet_options", "list(string)", false),
 		"args":           hclspec.NewAttr("args", "list(string)", false),
@@ -170,7 +169,7 @@ type TaskConfig struct {
 	// DotnetOpts are arguments to pass to the JVM
 	DotnetOpts []string `codec:"dotnet_options"`
 
-	// Args are extra arguments to java executable
+	// Args are extra arguments to dotnet executable
 	Args []string `codec:"args"`
 
 	// ModePID indicates whether PID namespace isolation is enabled for the task.
@@ -225,7 +224,7 @@ type TaskState struct {
 	StartedAt      time.Time
 }
 
-// Driver is a driver for running images via Java
+// Driver is a driver for running images via Dotnet
 type Driver struct {
 	// eventer is used to handle multiplexing of TaskEvents calls such that an
 	// event can be broadcast to all callers
@@ -338,7 +337,7 @@ func (d *Driver) buildFingerprint() *drivers.Fingerprint {
 
 	version, err := DotnetVersionInfo()
 	if err != nil {
-		// return no error, as it isn't an error to not find java, it just means we
+		// return no error, as it isn't an error to not find dotnet, it just means we
 		// can't use it.
 		fp.Health = drivers.HealthStateUndetected
 		fp.HealthDescription = ""
