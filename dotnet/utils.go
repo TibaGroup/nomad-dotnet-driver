@@ -10,7 +10,7 @@ import (
 
 var dotnetVersionCommand = []string{"dotnet", "--version"}
 
-func DotnetVersionInfo() (version string, err error) {
+func VersionInfo() (version string, err error) {
 	var out bytes.Buffer
 
 	cmd := exec.Command(dotnetVersionCommand[0], dotnetVersionCommand[1:]...)

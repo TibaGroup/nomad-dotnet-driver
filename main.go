@@ -7,13 +7,12 @@ import (
 	"context"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-dotnet-driver/dotnet"
+	"github.com/hashicorp/nomad/plugins"
 )
 
 func main() {
 	// Serve the plugin
-	ver, err := dotnet.DotnetVersionInfo()
-	println("dotnet", ver, err)
-	//plugins.Serve(factory)
+	plugins.Serve(factory)
 }
 
 // factory returns a new instance of a nomad driver plugin

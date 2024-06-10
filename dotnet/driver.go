@@ -1,12 +1,15 @@
 package dotnet
 
-import "time"
+import (
+	"time"
+)
 
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: BUSL-1.1
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/hashicorp/consul-template/signals"
 	"github.com/hashicorp/go-hclog"
@@ -36,8 +39,10 @@ const (
 	fingerprintPeriod = 30 * time.Second
 
 	// The key populated in Node Attributes to indicate presence of the Dotnet driver
-	driverAttr        = "driver.dotnet"
-	driverVersionAttr = "driver.dotnet.version"
+	driverAttr           = "driver.dotnet"
+	driverVersionAttr    = "driver.dotnet.version"
+	driverRuntimeAttr    = "driver.dotnet.runtime"
+	driverWebRuntimeAttr = "driver.dotnet.web.runtime"
 
 	// taskHandleVersion is the version of task handle which this driver sets
 	// and understands how to decode driver state
@@ -89,7 +94,6 @@ var (
 		// It's required for either `class` or `dll_path` to be set,
 		// but that's not expressable in hclspec.  Marking both as optional
 		// and setting checking explicitly later
-		"class":          hclspec.NewAttr("class", "string", false),
 		"dll_path":       hclspec.NewAttr("dll_path", "string", false),
 		"dotnet_options": hclspec.NewAttr("dotnet_options", "list(string)", false),
 		"args":           hclspec.NewAttr("args", "list(string)", false),
@@ -160,14 +164,12 @@ func (c *Config) validate() error {
 
 // TaskConfig is the driver configuration of a taskConfig within a job
 type TaskConfig struct {
-	// Class indicates which class contains the dotnet entry point.
-	Class string `codec:"class"`
 
 	// DotnetPath indicates where a dll file is found.
 	DotnetPath string `codec:"dll_path"`
 
-	// DotnetOpts are arguments to pass to the JVM
-	DotnetOpts []string `codec:"dotnet_options"`
+	// DotnetOpts are arguments to pass to the dotnet
+	DotnetOpts *RuntimeConfig `codec:"dotnet_options"`
 
 	// Args are extra arguments to dotnet executable
 	Args []string `codec:"args"`
@@ -335,7 +337,7 @@ func (d *Driver) buildFingerprint() *drivers.Fingerprint {
 		}
 	}
 
-	version, err := DotnetVersionInfo()
+	version, err := VersionInfo()
 	if err != nil {
 		// return no error, as it isn't an error to not find dotnet, it just means we
 		// can't use it.
@@ -418,8 +420,8 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		return nil, nil, fmt.Errorf("failed driver config validation: %v", err)
 	}
 
-	if driverConfig.Class == "" && driverConfig.DotnetPath == "" {
-		return nil, nil, fmt.Errorf("dll_path or class must be specified")
+	if driverConfig.DotnetPath == "" {
+		return nil, nil, fmt.Errorf("dll_path must be specified")
 	}
 
 	absPath, err := GetAbsolutePath("dotnet")
@@ -428,6 +430,23 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	}
 
 	args := dotnetCmdArgs(driverConfig)
+
+	if driverConfig.DotnetOpts != nil {
+		data, _ := json.Marshal(driverConfig.DotnetOpts)
+		fo, err := os.Create("runtimeConfig.json")
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create runtimeConfig.json: %v", err)
+		}
+		if _, err := fo.Write(data); err != nil {
+			return nil, nil, fmt.Errorf("failed to write runtimeConfig.json: %v", err)
+		}
+		defer func(fo *os.File) {
+			err := fo.Close()
+			if err != nil {
+				return
+			}
+		}(fo)
+	}
 
 	d.logger.Info("starting dotnet task", "driver_cfg", hclog.Fmt("%+v", driverConfig), "args", args)
 
@@ -529,19 +548,9 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 func dotnetCmdArgs(driverConfig TaskConfig) []string {
 	var args []string
 
-	// Look for jvm options
-	if len(driverConfig.DotnetOpts) != 0 {
-		args = append(args, driverConfig.DotnetOpts...)
-	}
-
 	// Add the dll
 	if driverConfig.DotnetPath != "" {
-		args = append(args, "-dll", driverConfig.DotnetPath)
-	}
-
-	// Add the class
-	if driverConfig.Class != "" {
-		args = append(args, driverConfig.Class)
+		args = append(args, driverConfig.DotnetPath)
 	}
 
 	// Add any args
