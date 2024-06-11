@@ -1,6 +1,7 @@
 package dotnet
 
 import (
+	"path"
 	"time"
 )
 
@@ -95,30 +96,28 @@ var (
 		// but that's not expressable in hclspec.  Marking both as optional
 		// and setting checking explicitly later
 		"dll_path": hclspec.NewAttr("dll_path", "string", false),
-		"runtime": hclspec.NewBlock("runtime", false, hclspec.NewObject(map[string]*hclspec.Spec{
-			"gc": hclspec.NewBlock("gc", false, hclspec.NewObject(map[string]*hclspec.Spec{
-				"enable":               hclspec.NewAttr("enable", "bool", false),
-				"concurrent":           hclspec.NewAttr("concurrent", "bool", false),
-				"heap_limit":           hclspec.NewAttr("heap_limit", "number", false),
-				"heap_limit_percent":   hclspec.NewAttr("heap_limit_percent", "number", false),
-				"no_affinity":          hclspec.NewAttr("no_affinity", "bool", false),
-				"heap_affinity_mask":   hclspec.NewAttr("heap_affinity_mask", "number", false),
-				"heap_affinity_ranges": hclspec.NewAttr("heap_affinity_ranges", "string", false),
-				"cpu_group":            hclspec.NewAttr("cpu_group", "bool", false),
-				"high_mem_percent":     hclspec.NewAttr("high_mem_percent", "number", false),
-				"retain_vm":            hclspec.NewAttr("retain_vm", "bool", false),
-			})),
-			"globalization": hclspec.NewBlock("globalization", false, hclspec.NewObject(map[string]*hclspec.Spec{
-				"invariant":                hclspec.NewAttr("invariant", "bool", false),
-				"use_nls":                  hclspec.NewAttr("use_nls", "bool", false),
-				"predefined_cultures_only": hclspec.NewAttr("predefined_cultures_only", "bool", false),
-			})),
-			"threading": hclspec.NewBlock("threading", false, hclspec.NewObject(map[string]*hclspec.Spec{
-				"min_threads":             hclspec.NewAttr("min_threads", "number", false),
-				"max_threads":             hclspec.NewAttr("max_threads", "number", false),
-				"windows_thread_pool":     hclspec.NewAttr("windows_thread_pool", "bool", false),
-				"enable_autorelease_pool": hclspec.NewAttr("enable_autorelease_pool", "bool", false),
-			})),
+		"gc": hclspec.NewBlock("gc", false, hclspec.NewObject(map[string]*hclspec.Spec{
+			"enable":               hclspec.NewAttr("enable", "bool", false),
+			"concurrent":           hclspec.NewAttr("concurrent", "bool", false),
+			"heap_limit":           hclspec.NewAttr("heap_limit", "number", false),
+			"heap_limit_percent":   hclspec.NewAttr("heap_limit_percent", "number", false),
+			"no_affinity":          hclspec.NewAttr("no_affinity", "bool", false),
+			"heap_affinity_mask":   hclspec.NewAttr("heap_affinity_mask", "number", false),
+			"heap_affinity_ranges": hclspec.NewAttr("heap_affinity_ranges", "string", false),
+			"cpu_group":            hclspec.NewAttr("cpu_group", "bool", false),
+			"high_mem_percent":     hclspec.NewAttr("high_mem_percent", "number", false),
+			"retain_vm":            hclspec.NewAttr("retain_vm", "bool", false),
+		})),
+		"globalization": hclspec.NewBlock("globalization", false, hclspec.NewObject(map[string]*hclspec.Spec{
+			"invariant":                hclspec.NewAttr("invariant", "bool", false),
+			"use_nls":                  hclspec.NewAttr("use_nls", "bool", false),
+			"predefined_cultures_only": hclspec.NewAttr("predefined_cultures_only", "bool", false),
+		})),
+		"threading": hclspec.NewBlock("threading", false, hclspec.NewObject(map[string]*hclspec.Spec{
+			"min_threads":             hclspec.NewAttr("min_threads", "number", false),
+			"max_threads":             hclspec.NewAttr("max_threads", "number", false),
+			"windows_thread_pool":     hclspec.NewAttr("windows_thread_pool", "bool", false),
+			"enable_autorelease_pool": hclspec.NewAttr("enable_autorelease_pool", "bool", false),
 		})),
 		"args":     hclspec.NewAttr("args", "list(string)", false),
 		"pid_mode": hclspec.NewAttr("pid_mode", "string", false),
@@ -193,7 +192,11 @@ type TaskConfig struct {
 	DotnetPath string `codec:"dll_path"`
 
 	// RuntimeOptions are arguments to pass to the dotnet
-	RuntimeOptions *RuntimeConfig `codec:"runtime"`
+	GC *GcConfig `codec:"gc"`
+
+	Globalization *GlobalizationConfig `codec:"globalization"`
+
+	Threading *ThreadingConfig `codec:"threading"`
 
 	// Args are extra arguments to dotnet executable
 	Args []string `codec:"args"`
@@ -455,22 +458,25 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 
 	args := dotnetCmdArgs(driverConfig)
 
-	if driverConfig.RuntimeOptions != nil {
-		data, _ := json.Marshal(driverConfig.RuntimeOptions)
-		fo, err := os.Create("runtimeConfig.template.json")
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create runtimeConfig.json: %v", err)
-		}
-		if _, err := fo.Write(data); err != nil {
-			return nil, nil, fmt.Errorf("failed to write runtimeConfig.json: %v", err)
-		}
-		defer func(fo *os.File) {
-			err := fo.Close()
-			if err != nil {
-				return
-			}
-		}(fo)
+	var fileConfig = new(ConfigFile)
+	addGcConfig(driverConfig.GC, fileConfig)
+	addGlobalizationConfig(driverConfig.Globalization, fileConfig)
+	addThreadingConfig(driverConfig.Threading, fileConfig)
+
+	data, _ := json.Marshal(fileConfig)
+	fo, err := os.Create(path.Join(os.Getenv("NOMAD_TASK_DIR"), "runtimeConfig.json"))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create runtimeConfig.json: %v", err)
 	}
+	if _, err := fo.Write(data); err != nil {
+		return nil, nil, fmt.Errorf("failed to write runtimeConfig.json: %v", err)
+	}
+	defer func(fo *os.File) {
+		err := fo.Close()
+		if err != nil {
+			return
+		}
+	}(fo)
 
 	d.logger.Info("starting dotnet task", "driver_cfg", hclog.Fmt("%+v", driverConfig), "args", args)
 
