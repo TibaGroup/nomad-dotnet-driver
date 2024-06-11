@@ -464,7 +464,8 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	addThreadingConfig(driverConfig.Threading, fileConfig)
 
 	data, _ := json.Marshal(fileConfig)
-	fo, err := os.Create(path.Join(os.Getenv("NOMAD_TASK_DIR"), "runtimeConfig.json"))
+	//return nil, nil, fmt.Errorf(path.Join(os.Getenv("NOMAD_TASK_DIR"), "runtimeConfig.json"))
+	fo, err := os.Create(path.Join(filepath.Dir(driverConfig.DotnetPath), "runtimeConfig.json"))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create runtimeConfig.json: %v", err)
 	}
