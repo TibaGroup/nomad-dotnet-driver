@@ -1,4 +1,4 @@
-Nomad Skeleton Driver Plugin
+Nomad Dotnet Driver Plugin
 ==========
 
 Nomad Task Driver for Dotnet Core
