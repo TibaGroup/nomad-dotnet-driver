@@ -1,5 +1,5 @@
 // TODO: update the module path below to match your own repository
-module github.com/hashicorp/nomad-dotnet-driver
+module github.com/TibaGroup/nomad-dotnet-driver
 
 go 1.22
 

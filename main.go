@@ -1,12 +1,12 @@
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-package main
+package dotnet
 
 import (
 	"context"
+	"github.com/TibaGroup/nomad-dotnet-driver/dotnet"
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/nomad-dotnet-driver/dotnet"
 	"github.com/hashicorp/nomad/plugins"
 )
 
