@@ -36,7 +36,7 @@ $ nomad logs <ALLOCATION ID>
 
 As you may know, we can use nomad to run task without traditional containers (Docker, OCI...) and instead
 use OS-level or Runtime-level isolations. CLR as dotnet runtime, facilitates some isolations, 
-for example thread limitations and GC memory restrictions. You cna use both isolations within
+for example thread limitations and GC memory restrictions. You can use both isolations within
 Nomad job configurations.
 The dotnet command line configuration for running the process is ported here in the 3 category of
 Gc config, Threading config and globalization config.
