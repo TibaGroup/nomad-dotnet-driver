@@ -8,12 +8,10 @@ import (
 	"strings"
 )
 
-var dotnetVersionCommand = []string{"dotnet", "--version"}
-
-func VersionInfo() (version string, err error) {
+func CheckDotnetVersionInfo() (version string, err error) {
 	var out bytes.Buffer
 
-	cmd := exec.Command(dotnetVersionCommand[0], dotnetVersionCommand[1:]...)
+	cmd := exec.Command("/usr/local/share/dotnet/dotnet", "--version")
 	cmd.Stdout = &out
 	cmd.Stderr = &out
 	err = cmd.Run()

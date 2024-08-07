@@ -364,14 +364,16 @@ func (d *Driver) buildFingerprint() *drivers.Fingerprint {
 		}
 	}
 
-	version, err := VersionInfo()
+	version, err := CheckDotnetVersionInfo()
 	if err != nil {
-		// return no error, as it isn't an error to not find dotnet, it just means we
-		// can't use it.
 		fp.Health = drivers.HealthStateUndetected
-		fp.HealthDescription = ""
+		fp.HealthDescription = "Dotnet runtime not found"
+		d.logger.Error("Error checking dotnet version: %v", err)
 		return fp
 	}
+
+	fp.Health = drivers.HealthStateHealthy
+	fp.HealthDescription = fmt.Sprintf("Found dotnet version %s", version)
 
 	fp.Attributes[driverAttr] = pstructs.NewBoolAttribute(true)
 	fp.Attributes[driverVersionAttr] = pstructs.NewStringAttribute(version)
