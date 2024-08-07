@@ -5,8 +5,8 @@ package main
 
 import (
 	"context"
+	"github.com/TibaGroup/nomad-dotnet-driver/dotnet"
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/nomad-dotnet-driver/dotnet"
 	"github.com/hashicorp/nomad/plugins"
 )
 
