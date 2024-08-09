@@ -3,5 +3,11 @@
 
 log_level = "TRACE"
 
+client {
+  options = {
+    "driver.allowlist" = "dotnet"
+  }
+}
+
 plugin "dotnet" {
 }
