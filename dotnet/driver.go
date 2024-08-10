@@ -27,7 +27,6 @@ import (
 	"github.com/hashicorp/nomad/plugins/shared/hclspec"
 	pstructs "github.com/hashicorp/nomad/plugins/shared/structs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 )
@@ -453,7 +452,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		return nil, nil, fmt.Errorf("dll_path must be specified")
 	}
 
-	absPath, err := GetAbsolutePath("dotnet")
+	absPath, err := getDotnetPath()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find dotnet binary: %s", err)
 	}
@@ -746,15 +745,4 @@ func (d *Driver) ExecTaskStreamingRaw(ctx context.Context,
 	}
 
 	return handle.exec.ExecStreaming(ctx, command, tty, stream)
-}
-
-// GetAbsolutePath returns the absolute path of the passed binary by resolving
-// it in the path and following symlinks.
-func GetAbsolutePath(bin string) (string, error) {
-	lp, err := exec.LookPath(bin)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve path to %q executable: %v", bin, err)
-	}
-
-	return filepath.EvalSymlinks(lp)
 }

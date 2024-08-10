@@ -3,15 +3,75 @@ package dotnet
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 )
+
+func getDotnetPath() (string, error) {
+	switch runtime.GOOS {
+	case "windows":
+		return findDotnetWindows()
+	case "linux", "darwin":
+		return findDotnetUnix()
+	default:
+		return "", fmt.Errorf("unsupported platform")
+	}
+}
+
+// findDotnetWindows queries the Windows Registry to find the .NET installation path
+func findDotnetWindows() (string, error) {
+	// Query the registry to find the .NET SDK installation path
+	// (This example assumes Go 1.19 or later with support for `exec.Command`)
+	cmd := exec.Command("reg", "query", `HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedhost`, "/v", "Version")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to query the registry: %v", err)
+	}
+
+	// Parse the registry output to find the installation path
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "Version") {
+			// Assuming the path follows the version information in the registry
+			versionPath := filepath.Join("C:\\Program Files\\dotnet", "dotnet.exe")
+			return versionPath, nil
+		}
+	}
+
+	return "", fmt.Errorf(".NET SDK not found in registry")
+}
+
+// findDotnetUnix searches common Unix-based paths for the .NET SDK
+func findDotnetUnix() (string, error) {
+	// Define common paths where dotnet might be installed
+	paths := []string{
+		"/usr/local/share/dotnet/dotnet",
+		"/usr/share/dotnet/dotnet",
+		"/opt/dotnet/dotnet",
+	}
+
+	for _, path := range paths {
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+
+	return "", fmt.Errorf(".NET SDK not found in common directories")
+}
 
 func CheckDotnetVersionInfo() (version string, err error) {
 	var out bytes.Buffer
 
-	cmd := exec.Command("/usr/local/share/dotnet/dotnet", "--version")
+	absPath, err := getDotnetPath()
+	if err != nil {
+		err = fmt.Errorf("failed to find dotnet SDK: %v", err)
+		return
+	}
+	cmd := exec.Command(absPath, "--version")
 	cmd.Stdout = &out
 	cmd.Stderr = &out
 	err = cmd.Run()
