@@ -67,11 +67,12 @@ func CheckDotnetVersionInfo() (version string, err error) {
 	var out bytes.Buffer
 
 	absPath, err := getDotnetPath()
+	dotnetPath = absPath
 	if err != nil {
 		err = fmt.Errorf("failed to find dotnet SDK: %v", err)
 		return
 	}
-	cmd := exec.Command(absPath, "--version")
+	cmd := exec.Command(dotnetPath, "--version")
 	cmd.Stdout = &out
 	cmd.Stderr = &out
 	err = cmd.Run()

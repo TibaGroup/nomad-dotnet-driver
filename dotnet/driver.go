@@ -138,6 +138,8 @@ var (
 		MountConfigs: drivers.MountConfigSupportNone,
 	}
 
+	dotnetPath = ""
+
 	_ drivers.DriverPlugin = (*Driver)(nil)
 )
 
@@ -452,11 +454,6 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		return nil, nil, fmt.Errorf("dll_path must be specified")
 	}
 
-	absPath, err := getDotnetPath()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find dotnet binary: %s", err)
-	}
-
 	args := dotnetCmdArgs(driverConfig)
 
 	var fileConfig = new(ConfigFile)
@@ -522,7 +519,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	d.logger.Debug("task capabilities", "capabilities", caps)
 
 	execCmd := &executor.ExecCommand{
-		Cmd:              absPath,
+		Cmd:              dotnetPath,
 		Args:             args,
 		Env:              cfg.EnvList(),
 		User:             user,
