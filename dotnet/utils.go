@@ -52,6 +52,7 @@ func findDotnetUnix() (string, error) {
 		"/usr/local/share/dotnet/dotnet",
 		"/usr/share/dotnet/dotnet",
 		"/opt/dotnet/dotnet",
+		"usr/local/dotnet/dotnet",
 	}
 
 	for _, path := range paths {
@@ -63,20 +64,29 @@ func findDotnetUnix() (string, error) {
 	return "", fmt.Errorf(".NET SDK not found in common directories")
 }
 
-func CheckDotnetVersionInfo() (version string, err error) {
-	var out bytes.Buffer
+func CheckDotnetVersionInfo(config Config) (version string, err error) {
+	var (
+		out        bytes.Buffer
+		dotnetPath string
+		result     error
+	)
 
-	absPath, err := getDotnetPath()
-	dotnetPath = absPath
-	if err != nil {
-		err = fmt.Errorf("failed to find dotnet SDK: %v", err)
-		return
+	if config.SdkPath != "" {
+		dotnetPath = config.SdkPath
+	} else {
+		absPath, fail := getDotnetPath()
+		if fail != nil {
+			fail = fmt.Errorf("failed to find dotnet SDK: %v", fail)
+			return
+		}
+		dotnetPath = absPath
+		config.SdkPath = dotnetPath
 	}
 	cmd := exec.Command(dotnetPath, "--version")
 	cmd.Stdout = &out
 	cmd.Stderr = &out
-	err = cmd.Run()
-	if err != nil {
+	result = cmd.Run()
+	if result != nil {
 		err = fmt.Errorf("failed to check dotnet version: %v", err)
 		return
 	}

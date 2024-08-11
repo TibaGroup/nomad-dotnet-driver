@@ -39,10 +39,8 @@ const (
 	fingerprintPeriod = 30 * time.Second
 
 	// The key populated in Node Attributes to indicate presence of the Dotnet driver
-	driverAttr           = "driver.dotnet"
-	driverVersionAttr    = "driver.dotnet.version"
-	driverRuntimeAttr    = "driver.dotnet.runtime"
-	driverWebRuntimeAttr = "driver.dotnet.web.runtime"
+	driverAttr        = "driver.dotnet"
+	driverVersionAttr = "driver.dotnet.version"
 
 	// taskHandleVersion is the version of task handle which this driver sets
 	// and understands how to decode driver state
@@ -138,8 +136,6 @@ var (
 		MountConfigs: drivers.MountConfigSupportNone,
 	}
 
-	dotnetPath = ""
-
 	_ drivers.DriverPlugin = (*Driver)(nil)
 )
 
@@ -163,6 +159,9 @@ type Config struct {
 	// AllowCaps configures which Linux Capabilities are enabled for tasks
 	// running on this node.
 	AllowCaps []string `codec:"allow_caps"`
+
+	// SdkPath configures the path to the dotnet SDK binary (dotnet)
+	SdkPath string `codec:"sdk_path"`
 }
 
 func (c *Config) validate() error {
@@ -279,6 +278,7 @@ type Driver struct {
 
 func NewDriver(ctx context.Context, logger hclog.Logger) drivers.DriverPlugin {
 	logger = logger.Named(pluginName)
+
 	return &Driver{
 		eventer: eventer.NewEventer(ctx, logger),
 		tasks:   newTaskStore(),
@@ -298,6 +298,7 @@ func (d *Driver) ConfigSchema() (*hclspec.Spec, error) {
 func (d *Driver) SetConfig(cfg *base.Config) error {
 	// unpack, validate, and set agent plugin config
 	var config Config
+
 	if len(cfg.PluginConfig) != 0 {
 		if err := base.MsgPackDecode(cfg.PluginConfig, &config); err != nil {
 			return err
@@ -307,7 +308,7 @@ func (d *Driver) SetConfig(cfg *base.Config) error {
 		return err
 	}
 	d.config = config
-
+	
 	if cfg.AgentConfig != nil {
 		d.nomadConfig = cfg.AgentConfig.Driver
 	}
@@ -365,7 +366,7 @@ func (d *Driver) buildFingerprint() *drivers.Fingerprint {
 		}
 	}
 
-	version, err := CheckDotnetVersionInfo()
+	version, err := CheckDotnetVersionInfo(d.config)
 	if err != nil {
 		fp.Health = drivers.HealthStateUndetected
 		fp.HealthDescription = "Dotnet runtime not found"
@@ -441,29 +442,29 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		return nil, nil, fmt.Errorf("task with ID %q already started", cfg.ID)
 	}
 
-	var driverConfig TaskConfig
-	if err := cfg.DecodeDriverConfig(&driverConfig); err != nil {
+	var taskConfig TaskConfig
+	if err := cfg.DecodeDriverConfig(&taskConfig); err != nil {
 		return nil, nil, fmt.Errorf("failed to decode driver config: %v", err)
 	}
 
-	if err := driverConfig.validate(); err != nil {
+	if err := taskConfig.validate(); err != nil {
 		return nil, nil, fmt.Errorf("failed driver config validation: %v", err)
 	}
 
-	if driverConfig.DotnetPath == "" {
+	if taskConfig.DotnetPath == "" {
 		return nil, nil, fmt.Errorf("dll_path must be specified")
 	}
 
-	args := dotnetCmdArgs(driverConfig)
+	args := dotnetCmdArgs(taskConfig)
 
 	var fileConfig = new(ConfigFile)
-	addGcConfig(driverConfig.GC, fileConfig)
-	addGlobalizationConfig(driverConfig.Globalization, fileConfig)
-	addThreadingConfig(driverConfig.Threading, fileConfig)
+	addGcConfig(taskConfig.GC, fileConfig)
+	addGlobalizationConfig(taskConfig.Globalization, fileConfig)
+	addThreadingConfig(taskConfig.Threading, fileConfig)
 
 	data, _ := json.Marshal(fileConfig)
 	//return nil, nil, fmt.Errorf(path.Join(os.Getenv("NOMAD_TASK_DIR"), "runtimeConfig.json"))
-	fo, err := os.Create(path.Join(filepath.Dir(driverConfig.DotnetPath), "runtimeConfig.json"))
+	fo, err := os.Create(path.Join(filepath.Dir(taskConfig.DotnetPath), "runtimeConfig.json"))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create runtimeConfig.json: %v", err)
 	}
@@ -477,7 +478,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		}
 	}(fo)
 
-	d.logger.Info("starting dotnet task", "driver_cfg", hclog.Fmt("%+v", driverConfig), "args", args)
+	d.logger.Info("starting dotnet task", "driver_cfg", hclog.Fmt("%+v", taskConfig), "args", args)
 
 	handle := drivers.NewTaskHandle(taskHandleVersion)
 	handle.Config = cfg
@@ -511,7 +512,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	}
 
 	caps, err := capabilities.Calculate(
-		capabilities.NomadDefaults(), d.config.AllowCaps, driverConfig.CapAdd, driverConfig.CapDrop,
+		capabilities.NomadDefaults(), d.config.AllowCaps, taskConfig.CapAdd, taskConfig.CapDrop,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -519,7 +520,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	d.logger.Debug("task capabilities", "capabilities", caps)
 
 	execCmd := &executor.ExecCommand{
-		Cmd:              dotnetPath,
+		Cmd:              PluginConfig.Config["sdk_path"].(string),
 		Args:             args,
 		Env:              cfg.EnvList(),
 		User:             user,
@@ -531,8 +532,8 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		Mounts:           cfg.Mounts,
 		Devices:          cfg.Devices,
 		NetworkIsolation: cfg.NetworkIsolation,
-		ModePID:          executor.IsolationMode(d.config.DefaultModePID, driverConfig.ModePID),
-		ModeIPC:          executor.IsolationMode(d.config.DefaultModeIPC, driverConfig.ModeIPC),
+		ModePID:          executor.IsolationMode(d.config.DefaultModePID, taskConfig.ModePID),
+		ModeIPC:          executor.IsolationMode(d.config.DefaultModeIPC, taskConfig.ModeIPC),
 		Capabilities:     caps,
 	}
 
@@ -574,17 +575,17 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	return handle, nil, nil
 }
 
-func dotnetCmdArgs(driverConfig TaskConfig) []string {
+func dotnetCmdArgs(taskConfig TaskConfig) []string {
 	var args []string
 
 	// Add the dll
-	if driverConfig.DotnetPath != "" {
-		args = append(args, driverConfig.DotnetPath)
+	if taskConfig.DotnetPath != "" {
+		args = append(args, taskConfig.DotnetPath)
 	}
 
 	// Add any args
-	if len(driverConfig.Args) != 0 {
-		args = append(args, driverConfig.Args...)
+	if len(taskConfig.Args) != 0 {
+		args = append(args, taskConfig.Args...)
 	}
 
 	return args
