@@ -26,7 +26,16 @@ func getDotnetPath() (string, error) {
 func findDotnetWindows() (string, error) {
 	// Query the registry to find the .NET SDK installation path
 	// (This example assumes Go 1.19 or later with support for `exec.Command`)
-	cmd := exec.Command("reg", "query", `HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedhost`, "/v", "Version")
+	var arch string
+	switch runtime.GOARCH {
+	case "amd64":
+		arch = "x64"
+	case "arm64":
+		arch = "arm64"
+	default:
+		arch = "x64"
+	}
+	cmd := exec.Command("reg", "query", fmt.Sprintf(`HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\%s\sharedhost`, arch), "/v", "Version")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("failed to query the registry: %v", err)
@@ -68,7 +77,6 @@ func CheckDotnetVersionInfo(config Config) (version string, err error) {
 	var (
 		out        bytes.Buffer
 		dotnetPath string
-		result     error
 	)
 
 	if config.SdkPath != "" {
@@ -85,7 +93,7 @@ func CheckDotnetVersionInfo(config Config) (version string, err error) {
 	cmd := exec.Command(dotnetPath, "--version")
 	cmd.Stdout = &out
 	cmd.Stderr = &out
-	result = cmd.Run()
+	result := cmd.Run()
 	if result != nil {
 		err = fmt.Errorf("failed to check dotnet version: %v", err)
 		return
