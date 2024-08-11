@@ -15,7 +15,7 @@ func getDotnetPath() (string, error) {
 	switch runtime.GOOS {
 	case "windows":
 		return findDotnetWindows()
-	case "linux", "darwin":
+	case "linux", "darwin", "freebsd", "netbsd", "openbsd":
 		return findDotnetUnix()
 	default:
 		return "", fmt.Errorf("unsupported platform")
