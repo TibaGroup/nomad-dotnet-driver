@@ -281,6 +281,7 @@ func NewDriver(ctx context.Context, logger hclog.Logger) drivers.DriverPlugin {
 
 	return &Driver{
 		eventer: eventer.NewEventer(ctx, logger),
+		config:  *new(Config),
 		tasks:   newTaskStore(),
 		ctx:     ctx,
 		logger:  logger,
@@ -308,7 +309,7 @@ func (d *Driver) SetConfig(cfg *base.Config) error {
 		return err
 	}
 	d.config = config
-	
+
 	if cfg.AgentConfig != nil {
 		d.nomadConfig = cfg.AgentConfig.Driver
 	}
