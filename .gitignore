@@ -179,4 +179,4 @@ Temporary Items
 # Go workspace file
 go.work
 
-gp.sum
+go.sum
