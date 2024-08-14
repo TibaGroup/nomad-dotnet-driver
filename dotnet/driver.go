@@ -96,6 +96,7 @@ var (
 		"gc": hclspec.NewBlock("gc", false, hclspec.NewObject(map[string]*hclspec.Spec{
 			"enable":               hclspec.NewAttr("enable", "bool", false),
 			"concurrent":           hclspec.NewAttr("concurrent", "bool", false),
+			"heap_count":           hclspec.NewAttr("heap_count", "number", false),
 			"heap_limit":           hclspec.NewAttr("heap_limit", "number", false),
 			"heap_limit_percent":   hclspec.NewAttr("heap_limit_percent", "number", false),
 			"no_affinity":          hclspec.NewAttr("no_affinity", "bool", false),
