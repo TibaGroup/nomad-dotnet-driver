@@ -61,7 +61,7 @@ func findDotnetUnix() (string, error) {
 		"/usr/local/share/dotnet/dotnet",
 		"/usr/share/dotnet/dotnet",
 		"/opt/dotnet/dotnet",
-		"usr/local/dotnet/dotnet",
+		"/usr/local/dotnet/dotnet",
 	}
 
 	for _, path := range paths {
