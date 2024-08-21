@@ -73,7 +73,7 @@ func findDotnetUnix() (string, error) {
 	return "", fmt.Errorf(".NET SDK not found in common directories")
 }
 
-func CheckDotnetVersionInfo(config Config) (version string, err error) {
+func CheckDotnetVersionInfo(config *Config) (version string, err error) {
 	var (
 		out        bytes.Buffer
 		dotnetPath string

@@ -84,6 +84,10 @@ var (
 			hclspec.NewAttr("allow_caps", "list(string)", false),
 			hclspec.NewLiteral(capabilities.HCLSpecLiteral),
 		),
+		"sdk_path": hclspec.NewDefault(
+			hclspec.NewAttr("sdk_path", "string", false),
+			hclspec.NewLiteral(`""`),
+		),
 	})
 
 	// taskConfigSpec is the hcl specification for the driver config section of
@@ -92,7 +96,7 @@ var (
 		// It's required for either `class` or `dll_path` to be set,
 		// but that's not expressable in hclspec.  Marking both as optional
 		// and setting checking explicitly later
-		"dll_path": hclspec.NewAttr("dll_path", "string", false),
+		"dll_path": hclspec.NewAttr("dll_path", "string", true),
 		"gc": hclspec.NewBlock("gc", false, hclspec.NewObject(map[string]*hclspec.Spec{
 			"enable":               hclspec.NewAttr("enable", "bool", false),
 			"concurrent":           hclspec.NewAttr("concurrent", "bool", false),
@@ -367,7 +371,7 @@ func (d *Driver) buildFingerprint() *drivers.Fingerprint {
 		}
 	}
 
-	version, err := CheckDotnetVersionInfo(d.config)
+	version, err := CheckDotnetVersionInfo(&d.config)
 	if err != nil {
 		fp.Health = drivers.HealthStateUndetected
 		fp.HealthDescription = "Dotnet runtime not found"
@@ -452,10 +456,9 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		return nil, nil, fmt.Errorf("failed driver config validation: %v", err)
 	}
 
-	if taskConfig.DotnetPath == "" {
-		return nil, nil, fmt.Errorf("dll_path must be specified")
-	}
+	taskConfig.DotnetPath = path.Join(cfg.TaskDir().LocalDir, taskConfig.DotnetPath)
 
+	d.logger.Debug(fmt.Sprintf("Taskbinary %s", taskConfig.DotnetPath))
 	args := dotnetCmdArgs(taskConfig)
 
 	var fileConfig = new(ConfigFile)
@@ -464,8 +467,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	addThreadingConfig(taskConfig.Threading, fileConfig)
 
 	data, _ := json.Marshal(fileConfig)
-	//return nil, nil, fmt.Errorf(path.Join(os.Getenv("NOMAD_TASK_DIR"), "runtimeConfig.json"))
-	fo, err := os.Create(path.Join(filepath.Dir(taskConfig.DotnetPath), "runtimeConfig.json"))
+	fo, err := os.Create(path.Join(cfg.TaskDir().LocalDir, "runtimeConfig.json"))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create runtimeConfig.json: %v", err)
 	}
@@ -484,7 +486,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	handle := drivers.NewTaskHandle(taskHandleVersion)
 	handle.Config = cfg
 
-	pluginLogFile := filepath.Join(cfg.TaskDir().Dir, "executor.out")
+	pluginLogFile := filepath.Join(cfg.TaskDir().LocalDir, "executor.out")
 	executorConfig := &executor.ExecutorConfig{
 		LogFile:     pluginLogFile,
 		LogLevel:    "debug",
@@ -520,8 +522,10 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	}
 	d.logger.Debug("task capabilities", "capabilities", caps)
 
+	d.logger.Debug(fmt.Sprintf("SDK path: %s", d.config.SdkPath))
+
 	execCmd := &executor.ExecCommand{
-		Cmd:              PluginConfig.Config["sdk_path"].(string),
+		Cmd:              d.config.SdkPath,
 		Args:             args,
 		Env:              cfg.EnvList(),
 		User:             user,
