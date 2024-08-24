@@ -9,5 +9,8 @@ client {
   }
 }
 
-plugin "dotnet" {
+plugin "nomad-dotnet-driver" {
+  config {
+    sdk_path = "/usr/local/bin/dotnet"
+  }
 }

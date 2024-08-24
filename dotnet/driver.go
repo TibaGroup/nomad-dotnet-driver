@@ -94,7 +94,7 @@ var (
 	// a taskConfig within a job. It is returned in the TaskConfigSchema RPC
 	taskConfigSpec = hclspec.NewObject(map[string]*hclspec.Spec{
 		// It's required for either `class` or `dll_path` to be set,
-		// but that's not expressable in hclspec.  Marking both as optional
+		// but that's not expressible in hclspec.  Marking both as optional
 		// and setting checking explicitly later
 		"dll_path": hclspec.NewAttr("dll_path", "string", true),
 		"gc": hclspec.NewBlock("gc", false, hclspec.NewObject(map[string]*hclspec.Spec{
@@ -265,7 +265,7 @@ type Driver struct {
 	eventer *eventer.Eventer
 
 	// config is the driver configuration set by the SetConfig RPC
-	config Config
+	config *Config
 
 	// tasks is the in memory datastore mapping taskIDs to taskHandle
 	tasks *taskStore
@@ -283,10 +283,10 @@ type Driver struct {
 
 func NewDriver(ctx context.Context, logger hclog.Logger) drivers.DriverPlugin {
 	logger = logger.Named(pluginName)
-
+	
 	return &Driver{
 		eventer: eventer.NewEventer(ctx, logger),
-		config:  *new(Config),
+		config:  new(Config),
 		tasks:   newTaskStore(),
 		ctx:     ctx,
 		logger:  logger,
@@ -313,7 +313,7 @@ func (d *Driver) SetConfig(cfg *base.Config) error {
 	if err := config.validate(); err != nil {
 		return err
 	}
-	d.config = config
+	d.config = &config
 
 	if cfg.AgentConfig != nil {
 		d.nomadConfig = cfg.AgentConfig.Driver
@@ -372,7 +372,7 @@ func (d *Driver) buildFingerprint() *drivers.Fingerprint {
 		}
 	}
 
-	version, err := CheckDotnetVersionInfo(&d.config)
+	version, err := CheckDotnetVersionInfo(d.config)
 	if err != nil {
 		fp.Health = drivers.HealthStateUndetected
 		fp.HealthDescription = "Dotnet runtime not found"
@@ -381,7 +381,7 @@ func (d *Driver) buildFingerprint() *drivers.Fingerprint {
 	}
 
 	fp.Health = drivers.HealthStateHealthy
-	fp.HealthDescription = fmt.Sprintf("Found dotnet version %s", version)
+	fp.HealthDescription = fmt.Sprintf("Found dotnet version %s in %s", version, d.config.SdkPath)
 
 	fp.Attributes[driverAttr] = pstructs.NewBoolAttribute(true)
 	fp.Attributes[driverVersionAttr] = pstructs.NewStringAttribute(version)
@@ -459,7 +459,6 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 
 	taskConfig.DotnetPath = path.Join(cfg.TaskDir().LocalDir, taskConfig.DotnetPath)
 
-	d.logger.Debug(fmt.Sprintf("Taskbinary %s", taskConfig.DotnetPath))
 	args := dotnetCmdArgs(taskConfig)
 
 	var fileConfig = new(ConfigFile)
