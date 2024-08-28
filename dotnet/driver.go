@@ -2,6 +2,8 @@ package dotnet
 
 import (
 	"path"
+	"slices"
+	"strings"
 	"time"
 )
 
@@ -39,8 +41,9 @@ const (
 	fingerprintPeriod = 30 * time.Second
 
 	// The key populated in Node Attributes to indicate presence of the Dotnet driver
-	driverAttr        = "driver.dotnet"
-	driverVersionAttr = "driver.dotnet.version"
+	driverAttr                = "driver.dotnet"
+	driverVersionAttr         = "driver.dotnet.version"
+	driverRunTimeVersionsAttr = "driver.dotnet.runtime.versions"
 
 	// taskHandleVersion is the version of task handle which this driver sets
 	// and understands how to decode driver state
@@ -96,7 +99,8 @@ var (
 		// It's required for either `class` or `dll_path` to be set,
 		// but that's not expressible in hclspec.  Marking both as optional
 		// and setting checking explicitly later
-		"dll_path": hclspec.NewAttr("dll_path", "string", true),
+		"dll_path":        hclspec.NewAttr("dll_path", "string", true),
+		"runtime_version": hclspec.NewAttr("runtime_version", "string", false),
 		"gc": hclspec.NewBlock("gc", false, hclspec.NewObject(map[string]*hclspec.Spec{
 			"enable":               hclspec.NewAttr("enable", "bool", false),
 			"concurrent":           hclspec.NewAttr("concurrent", "bool", false),
@@ -167,6 +171,9 @@ type Config struct {
 
 	// SdkPath configures the path to the dotnet SDK binary (dotnet)
 	SdkPath string `codec:"sdk_path"`
+
+	// RuntimeVersions is the list of detected .NET runtime versions.
+	RuntimeVersions []string `codec:"runtime_versions"`
 }
 
 func (c *Config) validate() error {
@@ -190,11 +197,25 @@ func (c *Config) validate() error {
 	return nil
 }
 
+// validate ensures that Config and TaskConfig are cross-validated to detect any misconfigurations
+func validate(c *Config, tc *TaskConfig) (err error) {
+	if tc.RuntimeVersion != "" {
+		if slices.Contains(c.RuntimeVersions, tc.RuntimeVersion) == false {
+			return fmt.Errorf("unsupported runtime_version %s", tc.RuntimeVersion)
+		}
+
+	}
+	return
+}
+
 // TaskConfig is the driver configuration of a taskConfig within a job
 type TaskConfig struct {
 
 	// DotnetPath indicates where a dll file is found.
 	DotnetPath string `codec:"dll_path"`
+
+	// SdkVersion indicates which version of dotnet the task must be run
+	RuntimeVersion string `codec:"runtime_version"`
 
 	// RuntimeOptions are arguments to pass to the dotnet
 	GC *GcConfig `codec:"gc"`
@@ -283,7 +304,7 @@ type Driver struct {
 
 func NewDriver(ctx context.Context, logger hclog.Logger) drivers.DriverPlugin {
 	logger = logger.Named(pluginName)
-	
+
 	return &Driver{
 		eventer: eventer.NewEventer(ctx, logger),
 		config:  new(Config),
@@ -310,6 +331,13 @@ func (d *Driver) SetConfig(cfg *base.Config) error {
 			return err
 		}
 	}
+
+	runtimeVersions, err := GetRuntimeVersions(&config)
+	if err != nil {
+		return err
+	}
+
+	config.RuntimeVersions = runtimeVersions
 	if err := config.validate(); err != nil {
 		return err
 	}
@@ -373,6 +401,7 @@ func (d *Driver) buildFingerprint() *drivers.Fingerprint {
 	}
 
 	version, err := CheckDotnetVersionInfo(d.config)
+	runtimeVersions, err := GetRuntimeVersions(d.config)
 	if err != nil {
 		fp.Health = drivers.HealthStateUndetected
 		fp.HealthDescription = "Dotnet runtime not found"
@@ -385,6 +414,7 @@ func (d *Driver) buildFingerprint() *drivers.Fingerprint {
 
 	fp.Attributes[driverAttr] = pstructs.NewBoolAttribute(true)
 	fp.Attributes[driverVersionAttr] = pstructs.NewStringAttribute(version)
+	fp.Attributes[driverRunTimeVersionsAttr] = pstructs.NewStringAttribute(strings.Join(runtimeVersions, " "))
 
 	return fp
 }
@@ -457,7 +487,9 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		return nil, nil, fmt.Errorf("failed driver config validation: %v", err)
 	}
 
-	taskConfig.DotnetPath = path.Join(cfg.TaskDir().LocalDir, taskConfig.DotnetPath)
+	if err := validate(d.config, &taskConfig); err != nil {
+		return nil, nil, err
+	}
 
 	args := dotnetCmdArgs(taskConfig)
 
@@ -582,6 +614,11 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 
 func dotnetCmdArgs(taskConfig TaskConfig) []string {
 	var args []string
+
+	//Add runtime version
+	if taskConfig.RuntimeVersion != "" {
+		args = append(args, "--fx-version", taskConfig.RuntimeVersion)
+	}
 
 	// Add the dll
 	if taskConfig.DotnetPath != "" {

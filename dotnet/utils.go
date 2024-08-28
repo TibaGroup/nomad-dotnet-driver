@@ -8,7 +8,13 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
+)
+
+var (
+	dotnetVersionRe  = regexp.MustCompile(`([.\d_]+)`)
+	runtimeVersionRe = regexp.MustCompile(`\b\d+\.\d+\.\d+\b`)
 )
 
 func getDotnetPath() (string, error) {
@@ -73,6 +79,32 @@ func findDotnetUnix() (string, error) {
 	return "", fmt.Errorf(".NET SDK not found in common directories")
 }
 
+func GetRuntimeVersions(config *Config) (runtimeVersions []string, err error) {
+	var (
+		out bytes.Buffer
+	)
+	if config.SdkPath == "" {
+		err = fmt.Errorf(".Net SDK not found")
+		return
+	}
+	cmd := exec.Command(config.SdkPath, "--list-runtimes")
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	result := cmd.Run()
+	if result != nil {
+		err = fmt.Errorf("failed to check dotnet version: %v", err)
+		return
+	}
+
+	for _, line := range strings.Split(out.String(), "\n") {
+		version := parseRuntimeVersionOutput(line)
+		if slices.Contains(runtimeVersions, version) != true {
+			runtimeVersions = append(runtimeVersions, version)
+		}
+	}
+	return
+
+}
 func CheckDotnetVersionInfo(config *Config) (version string, err error) {
 	var (
 		out        bytes.Buffer
@@ -103,9 +135,12 @@ func CheckDotnetVersionInfo(config *Config) (version string, err error) {
 	return
 }
 
-var (
-	dotnetVersionRe = regexp.MustCompile(`([.\d_]+)`)
-)
+func parseRuntimeVersionOutput(listRuntimesString string) (runtimeVersion string) {
+	if match := runtimeVersionRe.FindString(listRuntimesString); match != "" {
+		runtimeVersion = match
+	}
+	return
+}
 
 func parseDotnetVersionOutput(infoString string) string {
 	versionString := strings.TrimSpace(infoString)
