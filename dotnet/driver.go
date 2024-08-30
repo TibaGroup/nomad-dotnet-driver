@@ -199,9 +199,9 @@ func (c *Config) validate() error {
 
 // validate ensures that Config and TaskConfig are cross-validated to detect any misconfigurations
 func validate(c *Config, tc *TaskConfig) (err error) {
-	if tc.RuntimeVersion != "" {
-		if slices.Contains(c.RuntimeVersions, tc.RuntimeVersion) == false {
-			return fmt.Errorf("unsupported runtime_version %s", tc.RuntimeVersion)
+	if tc.RuntimeVersion != nil {
+		if slices.Contains(c.RuntimeVersions, *tc.RuntimeVersion) == false {
+			return fmt.Errorf("unsupported runtime_version %s", *tc.RuntimeVersion)
 		}
 
 	}
@@ -215,7 +215,7 @@ type TaskConfig struct {
 	DotnetPath string `codec:"dll_path"`
 
 	// SdkVersion indicates which version of dotnet the task must be run
-	RuntimeVersion string `codec:"runtime_version"`
+	RuntimeVersion *string `codec:"runtime_version"`
 
 	// RuntimeOptions are arguments to pass to the dotnet
 	GC *GcConfig `codec:"gc"`
@@ -616,8 +616,8 @@ func dotnetCmdArgs(taskConfig TaskConfig) []string {
 	var args []string
 
 	//Add runtime version
-	if taskConfig.RuntimeVersion != "" {
-		args = append(args, "--fx-version", taskConfig.RuntimeVersion)
+	if taskConfig.RuntimeVersion != nil {
+		args = append(args, "--fx-version", *taskConfig.RuntimeVersion)
 	}
 
 	// Add the dll
