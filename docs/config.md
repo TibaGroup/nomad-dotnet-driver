@@ -83,3 +83,34 @@ RetainVM             *bool
     * Description: Configures whether segments that should be deleted are put on a standby list for future use or are released back to the operating system (OS).
     * Configuration: Set System.GC.RetainVM to true or false in the .runtimeconfig.json file.
     * Example: true
+
+  
+```go
+GlobalizationConfig to.NET Core Globalization Configuration
+
+type GlobalizationConfig struct {
+Invariant              *bool
+UseNls                 *bool
+PredefinedCulturesOnly *bool
+}
+
+```
+### Field Descriptions
+
+* [Invariant](https://learn.microsoft.com/en-us/dotnet/core/runtime-config/globalization#invariant-mode)
+  * .NET Core Equivalent: System.Globalization.Invariant
+    * Description: Determines whether a .NET Core app runs in globalization-invariant mode without access to culture-specific data and behavior.
+    * Configuration: Set System.Globalization.Invariant to true or false in the .runtimeconfig.json file.
+    * Example: true
+
+* [UseNls](https://learn.microsoft.com/en-us/dotnet/core/runtime-config/globalization#nls)
+  * .NET Core Equivalent: System.Globalization.UseNls
+    * Description: Determines whether .NET uses National Language Support (NLS) or International Components for Unicode (ICU) globalization APIs for Windows apps.
+    * Configuration: Set System.Globalization.UseNls to true or false in the .runtimeconfig.json file.
+    * Example: true
+
+* [PredefinedCulturesOnly](https://learn.microsoft.com/en-us/dotnet/core/runtime-config/globalization#predefined-cultures)
+  * .NET Core Equivalent: System.Globalization.PredefinedCulturesOnly
+    * Description: Configures whether apps can create cultures other than the invariant culture.
+    * Configuration: Set System.Globalization.PredefinedCulturesOnly to true or false in the .runtimeconfig.json file.
+    * Example: true
