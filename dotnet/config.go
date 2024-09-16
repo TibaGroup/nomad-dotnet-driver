@@ -1,5 +1,10 @@
 package dotnet
 
+import (
+	"encoding/json"
+	"fmt"
+)
+
 type GcConfig struct {
 	Enable               *bool   `codec:"enable"`
 	Concurrent           *bool   `codec:"concurrent"`
@@ -88,4 +93,32 @@ func addThreadingConfig(hcl *ThreadingConfig, conf *ConfigFile) {
 	conf.RuntimeOptions.ConfigProperties.ThreadPoolMaxThreads = hcl.ThreadPoolMaxThreads
 	conf.RuntimeOptions.ConfigProperties.UseWindowsThreadPool = hcl.UseWindowsThreadPool
 	conf.RuntimeOptions.ConfigProperties.AutoReleasePoolSupport = hcl.AutoReleasePoolSupport
+}
+
+func mergeDotnetConfigs(fileConf []byte, parsedConf []byte) ([]byte, error) {
+	var conf1, conf2 map[string]any
+	if err := json.Unmarshal(fileConf, &conf1); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal task config: %v", err)
+	}
+	if err := json.Unmarshal(parsedConf, &conf2); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal parsed config: %v", err)
+	}
+
+	for _, confName := range [2]string{"runtimeOptions", "configProperties"} {
+		if parsedConfRunOpts, ok := conf2[confName].(map[string]any); ok {
+			if fileConfRunOpts, ok := conf1[confName].(map[string]any); ok {
+				for key, val := range parsedConfRunOpts {
+					if _, ok := fileConfRunOpts[key]; !ok {
+						fileConfRunOpts[key] = val
+					}
+				}
+				conf2[confName] = fileConfRunOpts
+			}
+		}
+	}
+	marshal, err := json.Marshal(conf2)
+	if err != nil {
+		return nil, err
+	}
+	return marshal, nil
 }

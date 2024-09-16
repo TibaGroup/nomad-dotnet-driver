@@ -1,12 +1,5 @@
 package dotnet
 
-import (
-	"path"
-	"slices"
-	"strings"
-	"time"
-)
-
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: BUSL-1.1
 
@@ -29,8 +22,12 @@ import (
 	"github.com/hashicorp/nomad/plugins/shared/hclspec"
 	pstructs "github.com/hashicorp/nomad/plugins/shared/structs"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
+	"slices"
+	"strings"
+	"time"
 )
 
 const (
@@ -100,6 +97,7 @@ var (
 		// but that's not expressible in hclspec.  Marking both as optional
 		// and setting checking explicitly later
 		"dll_path":        hclspec.NewAttr("dll_path", "string", true),
+		"app_name":        hclspec.NewAttr("app_name", "string", true),
 		"runtime_version": hclspec.NewAttr("runtime_version", "string", false),
 		"gc": hclspec.NewBlock("gc", false, hclspec.NewObject(map[string]*hclspec.Spec{
 			"enable":               hclspec.NewAttr("enable", "bool", false),
@@ -213,6 +211,9 @@ type TaskConfig struct {
 
 	// DotnetPath indicates where a dll file is found.
 	DotnetPath string `codec:"dll_path"`
+
+	// AppName indicates the .Net application name.
+	AppName string `codec:"app_name"`
 
 	// SdkVersion indicates which version of dotnet the task must be run
 	RuntimeVersion *string `codec:"runtime_version"`
@@ -499,12 +500,18 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	addThreadingConfig(taskConfig.Threading, fileConfig)
 
 	data, _ := json.Marshal(fileConfig)
-	fo, err := os.Create(path.Join(cfg.TaskDir().LocalDir, "runtimeConfig.json"))
+	dotnetConfigPath := path.Join(cfg.TaskDir().LocalDir, fmt.Sprintf("%s.runtimeconfig.json", taskConfig.AppName))
+
+	if content, err := os.ReadFile(dotnetConfigPath); !os.IsNotExist(err) {
+		data, _ = mergeDotnetConfigs(data, content)
+	}
+
+	fo, err := os.Create(dotnetConfigPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create runtimeConfig.json: %v", err)
+		return nil, nil, fmt.Errorf("failed to create %s.runtimeconfig.json: %v", taskConfig.AppName, err)
 	}
 	if _, err := fo.Write(data); err != nil {
-		return nil, nil, fmt.Errorf("failed to write runtimeConfig.json: %v", err)
+		return nil, nil, fmt.Errorf("failed to write %s.runtimeconfig.json: %v", taskConfig.AppName, err)
 	}
 	defer func(fo *os.File) {
 		err := fo.Close()
