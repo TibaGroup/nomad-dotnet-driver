@@ -114,3 +114,41 @@ PredefinedCulturesOnly *bool
     * Description: Configures whether apps can create cultures other than the invariant culture.
     * Configuration: Set System.Globalization.PredefinedCulturesOnly to true or false in the .runtimeconfig.json file.
     * Example: true
+
+
+```go
+ThreadingConfig to.NET Core Threading Configuration
+
+type ThreadingConfig struct {
+ThreadPoolMinThreads   *uint32
+ThreadPoolMaxThreads   *uint32
+UseWindowsThreadPool   *bool  
+AutoReleasePoolSupport *bool  
+}
+
+```
+### Field Descriptions
+
+* [ThreadPoolMinThreads](https://learn.microsoft.com/en-us/dotnet/core/runtime-config/threading#minimum-threads)
+  * .NET Core Equivalent: System.Threading.ThreadPool.MinThreads
+    * Description: Specifies the minimum number of threads for the worker thread pool.
+    * Configuration: Set System.Threading.ThreadPool.MinThreads to a decimal value in the .runtimeconfig.json file.
+    * Example: 4
+
+* [ThreadPoolMaxThreads](https://learn.microsoft.com/en-us/dotnet/core/runtime-config/threading#maximum-threads)
+  * .NET Core Equivalent: System.Threading.ThreadPool.MaxThreads
+    * Description: Specifies the maximum number of threads for the worker thread pool.
+    * Configuration: Set System.Threading.ThreadPool.MaxThreads to a decimal value in the .runtimeconfig.json file.
+    * Example: 20
+
+* [UseWindowsThreadPool](https://learn.microsoft.com/en-us/dotnet/core/runtime-config/threading#windows-thread-pool)
+  * .NET Core Equivalent: System.Threading.ThreadPool.UseWindowsThreadPool
+    * Description: For projects on Windows, configures whether thread pool thread management is delegated to the Windows thread pool.
+    * Configuration: Set System.Threading.ThreadPool.UseWindowsThreadPool to true or false in the .runtimeconfig.json file.
+    * Example: true
+
+* [AutoReleasePoolSupport](https://learn.microsoft.com/en-us/dotnet/core/runtime-config/threading#autoreleasepool-for-managed-threads)
+  * .NET Core Equivalent: System.Threading.Thread.EnableAutoreleasePool
+    * Description: This option configures whether each managed thread receives an implicit NSAutoreleasePool when running on a supported macOS platform.
+    * Configuration: Set System.Threading.Thread.EnableAutoreleasePool to true or false in the .runtimeconfig.json file.
+    * Example: true
