@@ -499,13 +499,19 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	addGlobalizationConfig(taskConfig.Globalization, fileConfig)
 	addThreadingConfig(taskConfig.Threading, fileConfig)
 
-	data, _ := json.Marshal(fileConfig)
 	dotnetConfigPath := path.Join(cfg.TaskDir().LocalDir, fmt.Sprintf("%s.runtimeconfig.json", taskConfig.AppName))
 
 	if content, err := os.ReadFile(dotnetConfigPath); !os.IsNotExist(err) {
-		data, _ = mergeDotnetConfigs(data, content)
+		var parsedConfig = new(ConfigFile)
+		if err := json.Unmarshal(content, parsedConfig); err != nil {
+			return nil, nil, fmt.Errorf("failed to parse dotnet config file: %v", err)
+		}
+		if err := MergeConfigs(fileConfig, parsedConfig); err != nil {
+			return nil, nil, fmt.Errorf("failed to merge dotnet config file: %v", err)
+		}
 	}
 
+	data, _ := json.Marshal(fileConfig)
 	fo, err := os.Create(dotnetConfigPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create %s.runtimeconfig.json: %v", taskConfig.AppName, err)
