@@ -1,9 +1,6 @@
 package dotnet
 
-import (
-	"encoding/json"
-	"fmt"
-)
+import "reflect"
 
 type GcConfig struct {
 	Enable               *bool   `codec:"enable"`
@@ -34,25 +31,55 @@ type ThreadingConfig struct {
 
 type ConfigFile struct {
 	RuntimeOptions struct {
+		Tfm       string `json:"tfm,omitempty"`
+		Framework struct {
+			Name    string `json:"name,omitempty"`
+			Version string `json:"version,omitempty"`
+		} `json:"framework"`
 		ConfigProperties struct {
-			Enable                 *bool   `json:"System.GC.Server,omitempty"`
-			Concurrent             *bool   `json:"System.GC.Concurrent,omitempty"`
-			HeapCount              *uint16 `json:"System.GC.HeapCount,omitempty"`
-			HeapHardLimit          *uint64 `json:"System.GC.HeapHardLimit,omitempty,"`
-			HeapHardLimitPercent   *uint8  `json:"System.GC.HeapHardLimitPercent,omitempty"`
-			NoAffinity             *bool   `json:"System.GC.NoAffinitize,omitempty"`
-			HeapAffinityMask       *uint16 `json:"System.GC.HeapAffinitizeMask,omitempty"`
-			HeapAffinityRanges     *string `json:"System.GC.HeapAffinitizeRanges,omitempty"`
-			CpuGroup               *bool   `json:"System.GC.CpuGroup,omitempty"`
-			HighMemPercent         *uint8  `json:"System.GC.HighMemPercent,omitempty"`
-			RetainVM               *bool   `json:"System.GC.RetainVM,omitempty"`
-			InvariantCulture       *bool   `json:"System.Globalization.InvariantCulture,omitempty"`
-			UseNls                 *bool   `json:"System.Globalization.UseNls,omitempty"`
-			PredefinedCulturesOnly *bool   `json:"System.Globalization.PredefinedCulturesOnly,omitempty"`
-			ThreadPoolMinThreads   *uint32 `json:"System.Threading.ThreadPool.MinThreads,omitempty"`
-			ThreadPoolMaxThreads   *uint32 `json:"System.Threading.ThreadPool.MaxThreads,omitempty"`
-			UseWindowsThreadPool   *bool   `json:"System.Threading.ThreadPool.UseWindowsThreadPool,omitempty"`
-			AutoReleasePoolSupport *bool   `json:"System.Threading.Thread.EnableAutoreleasePool,omitempty"`
+			Enable                               *bool   `json:"System.GC.Server,omitempty"`
+			Concurrent                           *bool   `json:"System.GC.Concurrent,omitempty"`
+			LatencyMode                          *int    `json:"System.GC.LatencyMode,omitempty"`
+			ForceCompact                         *bool   `json:"System.GC.ForceCompact,omitempty"`
+			TrimCommit                           *bool   `json:"System.GC.TrimCommit,omitempty"`
+			CompactOnBackgroundThread            *bool   `json:"System.GC.CompactOnBackgroundThread,omitempty"`
+			RegionSize                           *int64  `json:"System.GC.RegionSize,omitempty"`
+			AllowVeryLargeObjects                *bool   `json:"System.GC.AllowVeryLargeObjects,omitempty"`
+			ServerHeapAffinitizeMask             *uint64 `json:"System.GC.ServerHeapAffinitizeMask,omitempty"`
+			HeapCount                            *uint16 `json:"System.GC.HeapCount,omitempty"`
+			HeapHardLimit                        *uint64 `json:"System.GC.HeapHardLimit,omitempty,"`
+			HeapHardLimitPercent                 *uint8  `json:"System.GC.HeapHardLimitPercent,omitempty"`
+			NoAffinity                           *bool   `json:"System.GC.NoAffinitize,omitempty"`
+			HeapAffinityMask                     *uint16 `json:"System.GC.HeapAffinitizeMask,omitempty"`
+			HeapAffinityRanges                   *string `json:"System.GC.HeapAffinitizeRanges,omitempty"`
+			CpuGroup                             *bool   `json:"System.GC.CpuGroup,omitempty"`
+			HighMemPercent                       *uint8  `json:"System.GC.HighMemPercent,omitempty"`
+			RetainVM                             *bool   `json:"System.GC.RetainVM,omitempty"`
+			InvariantCulture                     *bool   `json:"System.Globalization.InvariantCulture,omitempty"`
+			UseNls                               *bool   `json:"System.Globalization.UseNls,omitempty"`
+			PreferSystemLibraries                *bool   `json:"System.Globalization.PreferSystemLibraries,omitempty"`
+			GlobalizationInvariant               *bool   `json:"System.Globalization.Invariant,omitempty"`
+			PredefinedCulturesOnly               *bool   `json:"System.Globalization.PredefinedCulturesOnly,omitempty"`
+			ThreadPoolMinThreads                 *uint32 `json:"System.Threading.ThreadPool.MinThreads,omitempty"`
+			ThreadPoolMaxThreads                 *uint32 `json:"System.Threading.ThreadPool.MaxThreads,omitempty"`
+			ThreadPoolMinIOCompletionThreads     *int    `json:"System.Threading.ThreadPool.MinIOCompletionThreads,omitempty"`
+			ThreadPoolMaxIOCompletionThreads     *int    `json:"System.Threading.ThreadPool.MaxIOCompletionThreads,omitempty"`
+			ThreadPoolUnfairSemaphoreSpinLimit   *int    `json:"System.Threading.ThreadPool.UnfairSemaphoreSpinLimit,omitempty"`
+			ThreadUseAllCpuGroups                *bool   `json:"System.Threading.UseAllCpuGroups,omitempty"`
+			UseWindowsThreadPool                 *bool   `json:"System.Threading.ThreadPool.UseWindowsThreadPool,omitempty"`
+			AutoReleasePoolSupport               *bool   `json:"System.Threading.Thread.EnableAutoreleasePool,omitempty"`
+			StartupHook                          *string `json:"System.StartupHook,omitempty"`
+			UseReadyToRun                        *bool   `json:"System.Runtime.UseReadyToRun,omitempty"`
+			UseTieredCompilation                 *bool   `json:"System.Runtime.TieredCompilation,omitempty"`
+			TieredCompilationQuickJit            *bool   `json:"System.Runtime.TieredCompilation.QuickJit,omitempty"`
+			TieredCompilationQuickJitForLoops    *bool   `json:"System.Runtime.TieredCompilation.QuickJitForLoops,omitempty"`
+			DisableJitOptimizations              *bool   `json:"System.Runtime.DisableJitOptimizations,omitempty"`
+			EnableDiagnostics                    *bool   `json:"System.Runtime.EnableDiagnostics,omitempty"`
+			MaxStackSize                         *int64  `json:"System.Runtime.MaxStackSize,omitempty"`
+			DefaultTimeZone                      *string `json:"System.Runtime.DefaultTimeZone,omitempty"`
+			AssemblyLoadNoOptimizations          *bool   `json:"System.Runtime.Loader.AssemblyLoadNoOptimizations,omitempty"`
+			EnableAssemblyLoadContextRedirection *bool   `json:"System.Runtime.Loader.EnableAssemblyLoadContextRedirection,omitempty"`
+			MetaDataUpdaterSupport               *bool   `json:"System.Reflection.Metadata.MetadataUpdater.IsSupported,omitempty"`
 		} `json:"configProperties"`
 	} `json:"runtimeOptions"`
 }
@@ -95,30 +122,29 @@ func addThreadingConfig(hcl *ThreadingConfig, conf *ConfigFile) {
 	conf.RuntimeOptions.ConfigProperties.AutoReleasePoolSupport = hcl.AutoReleasePoolSupport
 }
 
-func mergeDotnetConfigs(fileConf []byte, parsedConf []byte) ([]byte, error) {
-	var conf1, conf2 map[string]any
-	if err := json.Unmarshal(fileConf, &conf1); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal task config: %v", err)
-	}
-	if err := json.Unmarshal(parsedConf, &conf2); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal parsed config: %v", err)
-	}
+func MergeConfigs(dest, src any) error {
+	destVal := reflect.ValueOf(dest).Elem()
+	srcVal := reflect.ValueOf(src).Elem()
 
-	for _, confName := range [2]string{"runtimeOptions", "configProperties"} {
-		if parsedConfRunOpts, ok := conf2[confName].(map[string]any); ok {
-			if fileConfRunOpts, ok := conf1[confName].(map[string]any); ok {
-				for key, val := range parsedConfRunOpts {
-					if _, ok := fileConfRunOpts[key]; !ok {
-						fileConfRunOpts[key] = val
-					}
+	var mergeRecursive func(dest, src reflect.Value) error
+	mergeRecursive = func(dest, src reflect.Value) error {
+		for i := 0; i < src.NumField(); i++ {
+			srcField := src.Field(i)
+			destField := dest.Field(i)
+
+			switch srcField.Kind() {
+			case reflect.Struct:
+				if err := mergeRecursive(destField, srcField); err != nil {
+					return err
 				}
-				conf2[confName] = fileConfRunOpts
+			default:
+				if !srcField.IsZero() && destField.CanSet() {
+					destField.Set(srcField)
+				}
 			}
 		}
+		return nil
 	}
-	marshal, err := json.Marshal(conf2)
-	if err != nil {
-		return nil, err
-	}
-	return marshal, nil
+
+	return mergeRecursive(destVal, srcVal)
 }
