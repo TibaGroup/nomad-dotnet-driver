@@ -197,8 +197,6 @@ cmake-build-*/
 # IntelliJ
 out/
 
-go.sum
-
 # mpeltonen/sbt-idea plugin
 .idea_modules/
 
