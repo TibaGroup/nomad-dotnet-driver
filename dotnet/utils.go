@@ -83,6 +83,8 @@ func GetRuntimeVersions(config *Config) (runtimeVersions []string, err error) {
 	var (
 		out bytes.Buffer
 	)
+
+	_, err = CheckDotnetVersionInfo(config)
 	if config.SdkPath == "" {
 		err = fmt.Errorf(".Net SDK not found")
 		return
