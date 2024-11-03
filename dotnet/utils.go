@@ -64,6 +64,8 @@ func findDotnetWindows() (string, error) {
 func findDotnetUnix() (string, error) {
 	// Define common paths where dotnet might be installed
 	paths := []string{
+		"/usr/bin/dotnet",
+		"/usr/local/bin/dotnet",
 		"/usr/local/share/dotnet/dotnet",
 		"/usr/share/dotnet/dotnet",
 		"/opt/dotnet/dotnet",
