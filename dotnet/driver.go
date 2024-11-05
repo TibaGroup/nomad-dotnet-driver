@@ -332,13 +332,6 @@ func (d *Driver) SetConfig(cfg *base.Config) error {
 			return err
 		}
 	}
-
-	runtimeVersions, err := GetRuntimeVersions(&config)
-	if err != nil {
-		return err
-	}
-
-	config.RuntimeVersions = runtimeVersions
 	if err := config.validate(); err != nil {
 		return err
 	}
@@ -402,11 +395,18 @@ func (d *Driver) buildFingerprint() *drivers.Fingerprint {
 	}
 
 	version, err := CheckDotnetVersionInfo(d.config)
-	runtimeVersions, err := GetRuntimeVersions(d.config)
-	if err != nil {
+	if d.config.SdkPath == "" {
+		fp.Health = drivers.HealthStateUndetected
+		fp.HealthDescription = "Dotnet sdk not found"
+		d.logger.Error("Error checking dotnet sdk version: %v", err)
+		return fp
+	}
+
+	runtimeVersions, err := CheckDotnetRuntimeVersions(d.config)
+	if d.config.RuntimeVersions == nil {
 		fp.Health = drivers.HealthStateUndetected
 		fp.HealthDescription = "Dotnet runtime not found"
-		d.logger.Error("Error checking dotnet version: %v", err)
+		d.logger.Error("Error checking dotnet runtime versions: %v", err)
 		return fp
 	}
 

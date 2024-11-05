@@ -81,12 +81,11 @@ func findDotnetUnix() (string, error) {
 	return "", fmt.Errorf(".NET SDK not found in common directories")
 }
 
-func GetRuntimeVersions(config *Config) (runtimeVersions []string, err error) {
+func CheckDotnetRuntimeVersions(config *Config) (runtimeVersions []string, err error) {
 	var (
 		out bytes.Buffer
 	)
 
-	_, err = CheckDotnetVersionInfo(config)
 	if config.SdkPath == "" {
 		err = fmt.Errorf(".Net SDK not found")
 		return
@@ -96,7 +95,7 @@ func GetRuntimeVersions(config *Config) (runtimeVersions []string, err error) {
 	cmd.Stderr = &out
 	result := cmd.Run()
 	if result != nil {
-		err = fmt.Errorf("failed to check dotnet version: %v", err)
+		err = fmt.Errorf("failed to check dotnet runtime versions: %v", err)
 		return
 	}
 
@@ -106,6 +105,7 @@ func GetRuntimeVersions(config *Config) (runtimeVersions []string, err error) {
 			runtimeVersions = append(runtimeVersions, version)
 		}
 	}
+	config.RuntimeVersions = runtimeVersions
 	return
 
 }
