@@ -4,8 +4,7 @@ job "example" {
       driver = "dotnet"
 
       config {
-        dll_path = "${NOMAD_TASK_DIR}/TestNomadTask.dll"
-        app_name = "TestNomadTask"
+        dll_path = "TestNomadTask.dll"
         runtime_version = "8.0.8"
         threading {
           min_threads = 10
@@ -32,8 +31,7 @@ job "example" {
           driver = "dotnet"
 
           config {
-            dll_path = "${NOMAD_TASK_DIR}/TestNomadTask.dll"
-            app_name = "TestNomadTask"
+            dll_path = "TestNomadTask.dll"
             runtime_version = "7.0.20"
             threading {
               min_threads = 10

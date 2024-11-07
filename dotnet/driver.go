@@ -97,7 +97,6 @@ var (
 		// but that's not expressible in hclspec.  Marking both as optional
 		// and setting checking explicitly later
 		"dll_path":        hclspec.NewAttr("dll_path", "string", true),
-		"app_name":        hclspec.NewAttr("app_name", "string", true),
 		"runtime_version": hclspec.NewAttr("runtime_version", "string", false),
 		"gc": hclspec.NewBlock("gc", false, hclspec.NewObject(map[string]*hclspec.Spec{
 			"enable":               hclspec.NewAttr("enable", "bool", false),
@@ -211,9 +210,6 @@ type TaskConfig struct {
 
 	// DotnetPath indicates where a dll file is found.
 	DotnetPath string `codec:"dll_path"`
-
-	// AppName indicates the .Net application name.
-	AppName string `codec:"app_name"`
 
 	// SdkVersion indicates which version of dotnet the task must be run
 	RuntimeVersion *string `codec:"runtime_version"`
@@ -492,14 +488,15 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		return nil, nil, err
 	}
 
-	args := dotnetCmdArgs(taskConfig)
+	args := dotnetCmdArgs(*cfg, taskConfig)
 
 	var fileConfig = new(ConfigFile)
 	addGcConfig(taskConfig.GC, fileConfig)
 	addGlobalizationConfig(taskConfig.Globalization, fileConfig)
 	addThreadingConfig(taskConfig.Threading, fileConfig)
 
-	dotnetConfigPath := path.Join(cfg.TaskDir().LocalDir, fmt.Sprintf("%s.runtimeconfig.json", taskConfig.AppName))
+	appName, _ := getDotnetAppName(taskConfig.DotnetPath)
+	dotnetConfigPath := path.Join(cfg.TaskDir().LocalDir, fmt.Sprintf("%s.runtimeconfig.json", appName))
 
 	if content, err := os.ReadFile(dotnetConfigPath); !os.IsNotExist(err) {
 		var parsedConfig = new(ConfigFile)
@@ -514,10 +511,10 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	data, _ := json.Marshal(fileConfig)
 	fo, err := os.Create(dotnetConfigPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create %s.runtimeconfig.json: %v", taskConfig.AppName, err)
+		return nil, nil, fmt.Errorf("failed to create %s.runtimeconfig.json: %v", appName, err)
 	}
 	if _, err := fo.Write(data); err != nil {
-		return nil, nil, fmt.Errorf("failed to write %s.runtimeconfig.json: %v", taskConfig.AppName, err)
+		return nil, nil, fmt.Errorf("failed to write %s.runtimeconfig.json: %v", appName, err)
 	}
 	defer func(fo *os.File) {
 		err := fo.Close()
@@ -625,7 +622,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	return handle, nil, nil
 }
 
-func dotnetCmdArgs(taskConfig TaskConfig) []string {
+func dotnetCmdArgs(driverConfig drivers.TaskConfig, taskConfig TaskConfig) []string {
 	var args []string
 
 	//Add runtime version
@@ -635,7 +632,7 @@ func dotnetCmdArgs(taskConfig TaskConfig) []string {
 
 	// Add the dll
 	if taskConfig.DotnetPath != "" {
-		args = append(args, taskConfig.DotnetPath)
+		args = append(args, fmt.Sprintf("%s/%s", driverConfig.TaskDir().LocalDir, taskConfig.DotnetPath))
 	}
 
 	// Add any args

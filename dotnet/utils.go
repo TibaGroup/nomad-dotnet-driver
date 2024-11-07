@@ -17,6 +17,15 @@ var (
 	runtimeVersionRe = regexp.MustCompile(`\b\d+\.\d+\.\d+\b`)
 )
 
+func getDotnetAppName(dotnetPath string) (string, error) {
+	re := regexp.MustCompile(`([^/]+)\.dll$`)
+	match := re.FindStringSubmatch(dotnetPath)
+	if len(match) > 1 {
+		return match[1], nil
+	} else {
+		return "", fmt.Errorf("could not extract app name from %s", dotnetPath)
+	}
+}
 func getDotnetPath() (string, error) {
 	switch runtime.GOOS {
 	case "windows":
