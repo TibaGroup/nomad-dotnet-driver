@@ -492,7 +492,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		return nil, nil, err
 	}
 
-	args := dotnetCmdArgs(taskConfig)
+	args := dotnetCmdArgs(*cfg, taskConfig)
 
 	var fileConfig = new(ConfigFile)
 	addGcConfig(taskConfig.GC, fileConfig)
@@ -625,7 +625,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	return handle, nil, nil
 }
 
-func dotnetCmdArgs(taskConfig TaskConfig) []string {
+func dotnetCmdArgs(driverConfig drivers.TaskConfig, taskConfig TaskConfig) []string {
 	var args []string
 
 	//Add runtime version
@@ -635,7 +635,7 @@ func dotnetCmdArgs(taskConfig TaskConfig) []string {
 
 	// Add the dll
 	if taskConfig.DotnetPath != "" {
-		args = append(args, taskConfig.DotnetPath)
+		args = append(args, fmt.Sprintf("%s/%s", driverConfig.TaskDir().LocalDir, taskConfig.DotnetPath))
 	}
 
 	// Add any args
